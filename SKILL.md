@@ -45,7 +45,9 @@ For supported repositories, run:
 python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" --help
 ```
 
-Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, BioStudies, Zenodo, Figshare, Dryad, Crossref, and HCA/Azul before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
+Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, BioStudies, Zenodo, Figshare, Dryad, Crossref, DataCite, and HCA/Azul before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
+
+If this repository is loaded as a Claude Code plugin, prefer the bundled MCP tools for supported API calls and use the CLI adapter as a fallback/debug surface.
 
 Start exact identifiers with:
 

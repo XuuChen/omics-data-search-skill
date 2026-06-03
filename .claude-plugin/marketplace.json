@@ -1,0 +1,33 @@
+{
+  "name": "xuu-chen-omics",
+  "owner": {
+    "name": "XuuChen"
+  },
+  "description": "Bioinformatics and omics data discovery plugins for Claude Code.",
+  "version": "0.4.0",
+  "plugins": [
+    {
+      "name": "omics-data-search",
+      "displayName": "Omics Data Search",
+      "source": {
+        "source": "github",
+        "repo": "XuuChen/omics-data-search-skill"
+      },
+      "description": "Find, verify, and download public omics datasets with repository APIs, download validation, and MCP tools.",
+      "version": "0.4.0",
+      "author": {
+        "name": "XuuChen"
+      },
+      "repository": "https://github.com/XuuChen/omics-data-search-skill",
+      "license": "MIT",
+      "category": "data-science",
+      "tags": [
+        "bioinformatics",
+        "omics",
+        "mcp",
+        "datasets",
+        "single-cell"
+      ]
+    }
+  ]
+}

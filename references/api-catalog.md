@@ -132,22 +132,28 @@ python3 scripts/omics_api.py hca-projects \
   --size 5
 ```
 
-## MCP Direction
+## MCP Tools
 
-Do not build an MCP server until the CLI command names and normalized JSON fields have survived real searches. When ready, wrap these same functions as MCP tools:
+When this repository is loaded as a Claude Code plugin, `.mcp.json` starts `servers/omics_mcp.py` as a stdio MCP server. The server wraps `scripts/omics_api.py`, so CLI and MCP behavior share the same API logic.
 
-- `omics_ncbi_search`
-- `omics_resolve_accession`
-- `omics_datacite_doi`
-- `omics_ena_runs`
-- `omics_cellxgene_collection`
-- `omics_gdc_files`
-- `omics_encode_search`
-- `omics_pride_files`
-- `omics_mgnify_downloads`
-- `omics_metabolights_study`
-- `omics_supplement_search`
-- `omics_hca_projects`
-- `omics_probe_url`
+MCP tool names use underscores:
 
-Keep MCP tools thin: validate inputs, call the same adapter logic, and return JSON plus provenance.
+- `resolve_accession`
+- `ncbi_search`
+- `ena_runs`
+- `cellxgene_collection`
+- `gdc_files`
+- `encode_search`
+- `encode_object`
+- `pride_files`
+- `mgnify_downloads`
+- `metabolights_study`
+- `datacite_doi`
+- `supplement_search`
+- `biostudies_search`
+- `zenodo_record`
+- `figshare_article`
+- `dryad_dataset`
+- `hca_projects`
+
+Keep future MCP additions thin: validate inputs, call the same adapter logic, and return JSON plus provenance.

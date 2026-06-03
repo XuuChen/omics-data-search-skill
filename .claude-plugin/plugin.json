@@ -1,0 +1,14 @@
+{
+  "name": "omics-data-search",
+  "description": "Find, verify, and download public omics datasets with repository APIs, download validation, and optional MCP tools.",
+  "version": "0.4.0",
+  "author": {
+    "name": "XuuChen"
+  },
+  "repository": "https://github.com/XuuChen/omics-data-search-skill",
+  "license": "MIT",
+  "skills": [
+    "./"
+  ],
+  "mcpServers": "./.mcp.json"
+}
