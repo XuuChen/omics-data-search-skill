@@ -1,6 +1,6 @@
 # Query Recipes
 
-Use exact identifiers first. Use broad web search only to discover official accession pages, then switch to repository APIs/pages.
+Use exact identifiers first. Use broad web search only to discover official accession pages, then switch to repository APIs/pages. For supported repositories, prefer `scripts/omics_api.py`; see `api-catalog.md`.
 
 ## Query Decomposition
 
@@ -53,6 +53,13 @@ PY
 
 For accessions, query exact strings such as `GSE...`, `SRP...`, `PRJNA...`, `SRR...`.
 
+Adapter examples:
+
+```bash
+python3 scripts/omics_api.py ncbi-search --db gds --term 'GSE12345' --retmax 5
+python3 scripts/omics_api.py ncbi-search --db sra --term 'PRJNA185544' --retmax 5
+```
+
 ## ENA Portal API
 
 ENA is often the easiest way to obtain direct FASTQ FTP/HTTPS paths for SRA/ENA runs.
@@ -67,6 +74,12 @@ curl -sS -G 'https://www.ebi.ac.uk/ena/portal/api/search' \
 
 If the user gives `SRP`, `ERP`, `DRP`, `PRJNA`, or `SRR`, try ENA even when the original source is NCBI.
 
+Adapter example:
+
+```bash
+python3 scripts/omics_api.py ena-runs --accession PRJNA185544 --limit 5
+```
+
 ## CELLxGENE Discover
 
 For collection pages, extract the collection UUID and query the curation API:
@@ -78,6 +91,12 @@ curl -sS -L "https://api.cellxgene.cziscience.com/curation/v1/collections/${COLL
 ```
 
 Do not invent `datasets.cellxgene.cziscience.com/*.h5ad` paths. Use `assets[].url`.
+
+Adapter example:
+
+```bash
+python3 scripts/omics_api.py cellxgene-collection --collection-id "$COLLECTION_ID"
+```
 
 ## GDC API
 
@@ -91,6 +110,12 @@ curl -sS 'https://api.gdc.cancer.gov/files?size=10&pretty=true' \
 
 For actual downloads, use a GDC manifest plus `gdc-client` when many files are needed.
 
+Adapter example:
+
+```bash
+python3 scripts/omics_api.py gdc-files --project TCGA-LUAD --data-category 'Transcriptome Profiling' --access open --size 10
+```
+
 ## Candidate Scoring
 
 Prefer candidates with:
@@ -101,4 +126,3 @@ Prefer candidates with:
 - Stable accession pages and API-discoverable files.
 - Checksums or content lengths.
 - Clear publication and citation.
-

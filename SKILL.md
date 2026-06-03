@@ -23,17 +23,29 @@ Search for real datasets, prove access paths, and return reproducible download i
 1. Normalize the request into facets: organism, tissue/cell type, disease/condition, modality, platform, cohort size, raw vs processed, public vs controlled, and geography/access constraints.
 2. If the user gave a paper, DOI, title, or accession, start exact. If the query is broad, search at least two likely repositories.
 3. Select repositories from `references/database-map.md`.
-4. Use query/API patterns from `references/query-recipes.md`.
-5. For each candidate, collect accession, title, repository, organism, modality, sample/cell count, data types, publication, access status, and candidate download assets.
-6. Validate download assets using `references/download-validation.md` or `scripts/probe_url.sh`.
-7. Rank candidates by biological match, processed-data usefulness, metadata completeness, public accessibility, and download reliability.
-8. Return a concise answer first, then a table and exact commands.
+4. Prefer `scripts/omics_api.py` for supported repositories; load `references/api-catalog.md` for command examples.
+5. Use query/API patterns from `references/query-recipes.md` when a repository is not covered by the adapter or needs custom query construction.
+6. For each candidate, collect accession, title, repository, organism, modality, sample/cell count, data types, publication, access status, and candidate download assets.
+7. Validate download assets using `references/download-validation.md` or `scripts/probe_url.sh`.
+8. Rank candidates by biological match, processed-data usefulness, metadata completeness, public accessibility, and download reliability.
+9. Return a concise answer first, then a table and exact commands.
 
 ## When To Load References
 
 - Load `references/database-map.md` when choosing where to search or explaining repository coverage.
+- Load `references/api-catalog.md` when using the bundled API adapter or deciding whether a future MCP wrapper would help.
 - Load `references/query-recipes.md` when building repository/API queries or translating a paper/request into search terms.
 - Load `references/download-validation.md` before declaring a link downloadable, mainland-accessible, or broken.
+
+## API Adapter
+
+For supported repositories, run:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" --help
+```
+
+Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, and MetaboLights before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
 
 ## Output Contract
 
@@ -45,4 +57,3 @@ For dataset-search results, include:
 - Caveats for controlled access, missing metadata, stale mirrors, or unverified links.
 
 If no suitable public dataset is found, say so directly and list the exact searches/repositories checked plus the next best path.
-
