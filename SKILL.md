@@ -26,7 +26,7 @@ Search for real datasets, prove access paths, and return reproducible download i
 4. Prefer `scripts/omics_api.py` for supported repositories; load `references/api-catalog.md` for command examples.
 5. Use query/API patterns from `references/query-recipes.md` when a repository is not covered by the adapter or needs custom query construction.
 6. For each candidate, collect accession, title, repository, organism, modality, sample/cell count, data types, publication, access status, and candidate download assets.
-7. Validate download assets using `references/download-validation.md` or `scripts/probe_url.sh`.
+7. Validate download assets with `probe-url`; for mainland/no-VPN claims use `probe-china-access` or the user's target machine.
 8. Rank candidates by biological match, processed-data usefulness, metadata completeness, public accessibility, and download reliability.
 9. Return a concise answer first, then a table and exact commands.
 
@@ -47,7 +47,7 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" --help
 
 Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, BioStudies, Zenodo, Figshare, Dryad, Crossref, DataCite, and HCA/Azul before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
 
-If this repository is loaded as a Claude Code plugin, prefer the bundled MCP tools for supported API calls and use the CLI adapter as a fallback/debug surface.
+If this repository is loaded as a Claude Code plugin, prefer the bundled MCP tools for supported API calls, URL probes, China-mainland probes, and download-plan generation. Use the CLI adapter as a fallback/debug surface.
 
 Start exact identifiers with:
 
@@ -57,6 +57,19 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" resolve-accession --accession
 
 For paper titles, data availability leads, or supplemental processed files, use `supplement-search` and then validate candidate download URLs.
 
+Before recommending a direct public file URL:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" probe-url --url URL --range
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" make-download-plan --url URL --output FILE
+```
+
+For China-mainland/no-VPN checks, only run public probes when appropriate and label the result as point-in-time evidence:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" probe-china-access --url URL --method RANGE --limit 3
+```
+
 ## Output Contract
 
 For dataset-search results, include:
@@ -64,6 +77,7 @@ For dataset-search results, include:
 - Recommended dataset(s) and why they match.
 - A table with accession, title, repository, organism, modality, size/counts, access status, verified URL/page, and verification date.
 - Download commands for verified public assets.
+- Evidence line for each direct URL, including verification date, HTTP status, byte-range result, size when known, and probe location when tested.
 - Caveats for controlled access, missing metadata, stale mirrors, or unverified links.
 
 If no suitable public dataset is found, say so directly and list the exact searches/repositories checked plus the next best path.

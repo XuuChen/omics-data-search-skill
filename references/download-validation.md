@@ -4,7 +4,15 @@ Never call a large file downloadable until headers or a small byte-range request
 
 ## Basic URL Probe
 
-Use `scripts/probe_url.sh` from the skill directory when possible:
+Use the structured API adapter first:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" probe-url \
+  --url 'https://example.org/file.h5ad' \
+  --range
+```
+
+Use `scripts/probe_url.sh` from the skill directory as a shell fallback:
 
 ```bash
 "${CLAUDE_SKILL_DIR}/scripts/probe_url.sh" 'https://example.org/file.h5ad'
@@ -28,7 +36,17 @@ Interpretation:
 
 ## Large File Download Commands
 
-Use resumable downloads and avoid preallocating huge files on shared filesystems:
+Generate a command plan when possible:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" make-download-plan \
+  --url 'https://example.org/file.h5ad' \
+  --output file.h5ad \
+  --expected-size 123456789 \
+  --md5 REPOSITORY_MD5
+```
+
+Manual equivalent: use resumable downloads and avoid preallocating huge files on shared filesystems:
 
 ```bash
 aria2c -c -x 8 -s 8 -k 1M --file-allocation=none -o output.file 'URL'
@@ -54,39 +72,26 @@ Use this only when the user asks or when mainland accessibility is central to th
 3. If public CN probes are acceptable, use a measurement service such as Globalping and report city/network/status.
 4. Do not claim universal mainland availability. Say "verified from these probes at this time."
 
-Globalping example for `HEAD`:
+Structured Globalping helper:
 
 ```bash
-host='datasets.cellxgene.cziscience.com'
-path='/file.h5ad'
-
-curl -sS -X POST 'https://api.globalping.io/v1/measurements' \
-  -H 'Content-Type: application/json' \
-  --data-binary @- <<JSON
-{
-  "type": "http",
-  "target": "${host}",
-  "locations": [{"country": "CN", "limit": 3}],
-  "measurementOptions": {
-    "protocol": "HTTPS",
-    "port": 443,
-    "request": {
-      "method": "HEAD",
-      "path": "${path}"
-    }
-  }
-}
-JSON
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" probe-china-access \
+  --url 'https://example.org/file.h5ad' \
+  --method RANGE \
+  --limit 3
 ```
 
-Then fetch the returned measurement URL:
+Dry-run the measurement payload in CI or before spending public probe credits:
 
 ```bash
-curl -sS 'https://api.globalping.io/v1/measurements/MEASUREMENT_ID' \
-  | jq '.status, [.results[] | {city: .probe.city, network: .probe.network, statusCode: .result.statusCode, error: .result.error}]'
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" probe-china-access \
+  --url 'https://example.org/file.h5ad' \
+  --method RANGE \
+  --limit 3 \
+  --dry-run
 ```
 
-For true byte retrieval, use `GET` with `Range: bytes=0-0` if the measurement tool supports custom headers.
+For true byte retrieval, use `--method RANGE`. The helper sends `GET` with `Range: bytes=0-0` and reports city/network/status.
 
 ## Final Evidence Line
 
@@ -101,4 +106,3 @@ If not verified:
 ```text
 Not verified: repository page exists, but direct file URL requires login or API-generated links.
 ```
-

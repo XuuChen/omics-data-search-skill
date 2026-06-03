@@ -41,7 +41,8 @@ The plugin provides a namespaced skill and an MCP server named `omics-data-searc
 The MCP server exposes these tools:
 
 ```text
-resolve_accession, ncbi_search, ena_runs, cellxgene_collection, gdc_files,
+resolve_accession, ncbi_search, probe_url, make_download_plan,
+probe_china_access, ena_runs, cellxgene_collection, gdc_files,
 encode_search, encode_object, pride_files, mgnify_downloads,
 metabolights_study, datacite_doi, supplement_search, biostudies_search,
 zenodo_record, figshare_article, dryad_dataset, hca_projects
@@ -53,8 +54,13 @@ Useful direct CLI checks:
 python3 scripts/omics_api.py resolve-accession --accession PXD000001 --fetch
 python3 scripts/omics_api.py supplement-search --query 'Human Lung Cell Atlas HLCA h5ad' --limit 3
 python3 scripts/omics_api.py hca-projects --organ liver --size 5
+python3 scripts/omics_api.py probe-url --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' --range
+python3 scripts/omics_api.py make-download-plan --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' --output HLCA_full_v1.1_emb.h5ad
+python3 scripts/omics_api.py probe-china-access --url 'https://zenodo.org/' --limit 1 --dry-run
 ```
+
+Protocol-level MCP smoke tests live in `tests/mcp_smoke.py`. A GitHub Actions validation template is included at `references/github-actions-validate.yml`; publishing it as `.github/workflows/validate.yml` requires a GitHub token with `workflow` scope.
 
 ## Supported API Families
 
-NCBI E-utilities, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, Crossref, DataCite, BioStudies, Zenodo, Figshare, Dryad, and HCA/Azul.
+NCBI E-utilities, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, Crossref, DataCite, BioStudies, Zenodo, Figshare, Dryad, HCA/Azul, direct HTTP URL probing, Globalping CN reachability probes, and resumable download-plan generation.

@@ -4,7 +4,7 @@
     "name": "XuuChen"
   },
   "description": "Bioinformatics and omics data discovery plugins for Claude Code.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "plugins": [
     {
       "name": "omics-data-search",
@@ -14,7 +14,7 @@
         "repo": "XuuChen/omics-data-search-skill"
       },
       "description": "Find, verify, and download public omics datasets with repository APIs, download validation, and MCP tools.",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "author": {
         "name": "XuuChen"
       },

@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 SERVER_NAME = "omics-data-search"
-SERVER_VERSION = "0.4.0"
+SERVER_VERSION = "0.5.0"
 PROTOCOL_VERSION = "2025-06-18"
 ROOT = Path(__file__).resolve().parents[1]
 OMICS_API = ROOT / "scripts" / "omics_api.py"
@@ -54,6 +54,50 @@ TOOLS = [
         "title": "Search NCBI",
         "description": "Search NCBI Entrez databases such as gds, sra, pubmed, bioproject, or biosample.",
         "inputSchema": schema({"db": STRING, "term": STRING, "retmax": INTEGER}, ["db", "term"]),
+    },
+    {
+        "name": "probe_url",
+        "title": "Probe Download URL",
+        "description": "Verify a direct download URL with HEAD and byte-range checks before recommending a large download.",
+        "inputSchema": schema(
+            {
+                "url": {**STRING, "description": "Absolute http(s) URL to probe."},
+                "range": {**BOOLEAN, "description": "Also request Range: bytes=0-0. Defaults to true."},
+                "timeout": {**INTEGER, "description": "Per-request timeout in seconds."},
+            },
+            ["url"],
+        ),
+    },
+    {
+        "name": "make_download_plan",
+        "title": "Make Download Plan",
+        "description": "Generate resumable aria2c/wget/curl commands and checksum/size validation commands for a verified URL.",
+        "inputSchema": schema(
+            {
+                "url": {**STRING, "description": "Absolute download URL."},
+                "output": {**STRING, "description": "Output filename. Defaults to the URL basename."},
+                "expected_size": {**INTEGER, "description": "Expected file size in bytes, if known."},
+                "md5": {**STRING, "description": "Repository-provided MD5 checksum, if known."},
+                "sha256": {**STRING, "description": "Repository-provided SHA256 checksum, if known."},
+                "connections": {**INTEGER, "description": "aria2c split/connection count."},
+            },
+            ["url"],
+        ),
+    },
+    {
+        "name": "probe_china_access",
+        "title": "Probe China-Mainland Access",
+        "description": "Use public Globalping CN probes for point-in-time HTTP reachability checks; report city/network/status without claiming universal access.",
+        "inputSchema": schema(
+            {
+                "url": {**STRING, "description": "Absolute http(s) URL to probe."},
+                "limit": {**INTEGER, "description": "Number of CN probes to request."},
+                "method": {"type": "string", "enum": ["HEAD", "RANGE"], "description": "HEAD or GET with Range: bytes=0-0."},
+                "timeout": {**INTEGER, "description": "Total polling timeout in seconds."},
+                "dry_run": {**BOOLEAN, "description": "Return the measurement payload without starting a probe."},
+            },
+            ["url"],
+        ),
     },
     {
         "name": "ena_runs",
@@ -210,6 +254,9 @@ def argv_for_tool(name, args):
     mapping = {
         "resolve_accession": "resolve-accession",
         "ncbi_search": "ncbi-search",
+        "probe_url": "probe-url",
+        "make_download_plan": "make-download-plan",
+        "probe_china_access": "probe-china-access",
         "ena_runs": "ena-runs",
         "cellxgene_collection": "cellxgene-collection",
         "gdc_files": "gdc-files",
@@ -237,6 +284,26 @@ def argv_for_tool(name, args):
         add_arg(argv, "--db", args.get("db"))
         add_arg(argv, "--term", args.get("term"))
         add_arg(argv, "--retmax", args.get("retmax"))
+    elif name == "probe_url":
+        add_arg(argv, "--url", args.get("url"))
+        if args.get("range") is False:
+            argv.append("--no-range")
+        else:
+            argv.append("--range")
+        add_arg(argv, "--timeout", args.get("timeout"))
+    elif name == "make_download_plan":
+        add_arg(argv, "--url", args.get("url"))
+        add_arg(argv, "--output", args.get("output"))
+        add_arg(argv, "--expected-size", args.get("expected_size"))
+        add_arg(argv, "--md5", args.get("md5"))
+        add_arg(argv, "--sha256", args.get("sha256"))
+        add_arg(argv, "--connections", args.get("connections"))
+    elif name == "probe_china_access":
+        add_arg(argv, "--url", args.get("url"))
+        add_arg(argv, "--limit", args.get("limit"))
+        add_arg(argv, "--method", args.get("method"))
+        add_arg(argv, "--timeout", args.get("timeout"))
+        add_arg(argv, "--dry-run", args.get("dry_run"))
     elif name == "ena_runs":
         add_arg(argv, "--accession", args.get("accession"))
         add_arg(argv, "--query", args.get("query"))

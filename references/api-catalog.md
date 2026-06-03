@@ -19,6 +19,9 @@ python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" ena-runs --accession PRJNA185
 | Command | Repository | Best For | Notes |
 |---|---|---|---|
 | `resolve-accession` | Multi-repository router | Guess likely repositories for GSE/SRP/PRJNA/SRR/PXD/MTBLS/MGYS/S-BSST/ENCFF/DOI/UUID inputs | Add `--fetch` for exact detail lookups where supported |
+| `probe-url` | Direct HTTP(S) URL | Proving whether a candidate file URL is directly downloadable | Uses `HEAD` and, by default, `Range: bytes=0-0`; reports status, content length, content type, and range support |
+| `make-download-plan` | Direct HTTP(S) URL | Generating resumable `aria2c`/`wget`/`curl` commands and validation commands | Add repository-provided `--expected-size`, `--md5`, or `--sha256` when available |
+| `probe-china-access` | Globalping public probes | Point-in-time China-mainland HTTP reachability checks | Use only when mainland/no-VPN access matters; use `--dry-run` in tests or CI |
 | `ncbi-search` | NCBI E-utilities | GEO/SRA/PubMed/BioProject/BioSample discovery | Set `NCBI_API_KEY` if doing many requests |
 | `ncbi-summary` | NCBI E-utilities | Fetching summaries for Entrez UIDs | Use after `ncbi-search` |
 | `ena-runs` | ENA Portal API | Resolving study/run/sample accessions to FASTQ URLs and MD5s | Converts ENA FTP paths to HTTPS mirrors |
@@ -124,6 +127,31 @@ python3 scripts/omics_api.py supplement-search \
   --limit 3
 ```
 
+Validate a direct file URL before recommending it:
+
+```bash
+python3 scripts/omics_api.py probe-url \
+  --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' \
+  --range
+```
+
+Generate resumable download commands:
+
+```bash
+python3 scripts/omics_api.py make-download-plan \
+  --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' \
+  --output HLCA_full_v1.1_emb.h5ad
+```
+
+Prepare or run China-mainland probes:
+
+```bash
+python3 scripts/omics_api.py probe-china-access \
+  --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' \
+  --method RANGE \
+  --limit 3
+```
+
 Search HCA liver projects:
 
 ```bash
@@ -140,6 +168,9 @@ MCP tool names use underscores:
 
 - `resolve_accession`
 - `ncbi_search`
+- `probe_url`
+- `make_download_plan`
+- `probe_china_access`
 - `ena_runs`
 - `cellxgene_collection`
 - `gdc_files`

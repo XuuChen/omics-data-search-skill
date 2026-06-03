@@ -1,0 +1,46 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate JSON manifests
+        run: |
+          python -m json.tool .claude-plugin/plugin.json >/dev/null
+          python -m json.tool .claude-plugin/marketplace.json >/dev/null
+          python -m json.tool .mcp.json >/dev/null
+
+      - name: Compile Python entry points
+        run: |
+          python -m py_compile scripts/omics_api.py servers/omics_mcp.py tests/mcp_smoke.py
+
+      - name: Smoke test CLI
+        run: |
+          python scripts/omics_api.py --help >/dev/null
+          python scripts/omics_api.py resolve-accession --accession PXD000001 >/tmp/resolve.json
+          python scripts/omics_api.py make-download-plan --url 'https://zenodo.org/records/7599104/files/HLCA_full_v1.1_emb.h5ad?download=1' >/tmp/download-plan.json
+          python scripts/omics_api.py probe-china-access --url 'https://zenodo.org/' --limit 1 --dry-run >/tmp/china-dry-run.json
+          python scripts/omics_api.py probe-url --url 'https://zenodo.org/' --no-range --timeout 30 >/tmp/url-probe.json
+          python - <<'PY'
+          import json
+          for path in ["/tmp/resolve.json", "/tmp/download-plan.json", "/tmp/china-dry-run.json", "/tmp/url-probe.json"]:
+              with open(path, "r", encoding="utf-8") as handle:
+                  json.load(handle)
+          PY
+
+      - name: Smoke test MCP server
+        run: |
+          python tests/mcp_smoke.py

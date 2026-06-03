@@ -9,13 +9,15 @@ import argparse
 import json
 import os
 import re
+import shlex
 import ssl
 import sys
+import time
 import urllib.parse
 import urllib.request
 
 
-USER_AGENT = "omics-data-search-skill/0.3 (+https://github.com/XuuChen/omics-data-search-skill)"
+USER_AGENT = "omics-data-search-skill/0.5 (+https://github.com/XuuChen/omics-data-search-skill)"
 
 
 def emit(payload):
@@ -39,7 +41,7 @@ def default_ssl_context():
     return ssl.create_default_context()
 
 
-def request_json(url, params=None, method="GET", body=None, headers=None):
+def request_json(url, params=None, method="GET", body=None, headers=None, timeout=60):
     if params:
         query = urllib.parse.urlencode(params, doseq=True)
         sep = "&" if "?" in url else "?"
@@ -57,7 +59,7 @@ def request_json(url, params=None, method="GET", body=None, headers=None):
     req = urllib.request.Request(url, data=data, headers=req_headers, method=method)
     context = default_ssl_context()
     try:
-        with urllib.request.urlopen(req, timeout=60, context=context) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
             text = resp.read().decode("utf-8")
             return {
                 "ok": True,
@@ -81,6 +83,300 @@ def request_json(url, params=None, method="GET", body=None, headers=None):
         }
     except Exception as exc:
         return {"ok": False, "url": url, "error": str(exc)}
+
+
+def request_raw(url, method="GET", headers=None, timeout=30, read_limit=0):
+    req_headers = {"User-Agent": USER_AGENT}
+    if headers:
+        req_headers.update(headers)
+    req = urllib.request.Request(url, headers=req_headers, method=method)
+    context = default_ssl_context()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
+            sample = resp.read(read_limit) if read_limit else b""
+            return {
+                "ok": True,
+                "url": resp.geturl(),
+                "status": resp.status,
+                "reason": getattr(resp, "reason", None),
+                "headers": dict(resp.headers.items()),
+                "body_sample_bytes": len(sample),
+            }
+    except urllib.error.HTTPError as exc:
+        sample = exc.read(read_limit) if read_limit else b""
+        return {
+            "ok": False,
+            "url": url,
+            "status": exc.code,
+            "reason": exc.reason,
+            "headers": dict(exc.headers.items()) if exc.headers else {},
+            "body_sample_bytes": len(sample),
+        }
+    except Exception as exc:
+        return {"ok": False, "url": url, "error": str(exc)}
+
+
+def lower_headers(response):
+    return {key.lower(): value for key, value in (response.get("headers") or {}).items()}
+
+
+def integer_header(headers, key):
+    value = headers.get(key)
+    if value is None:
+        return None
+    try:
+        return int(str(value).split(",", 1)[0].strip())
+    except Exception:
+        return None
+
+
+def interpret_probe(head, range_response=None):
+    headers = lower_headers(head)
+    head_status = head.get("status")
+    range_status = (range_response or {}).get("status")
+    content_type = headers.get("content-type", "")
+    content_length = integer_header(headers, "content-length")
+    accept_ranges = headers.get("accept-ranges")
+    notes = []
+
+    head_ok = isinstance(head_status, int) and 200 <= head_status < 400
+    range_supported = range_status == 206
+    range_byte_read = bool(range_response and range_response.get("body_sample_bytes"))
+    range_fetch_ok = range_supported or (range_status == 200 and range_byte_read)
+    direct_downloadable = head_ok and head_status not in {401, 403, 404}
+
+    if head_status in {401, 403}:
+        notes.append("URL responded with an authorization/forbidden status; treat as login-required or blocked.")
+    elif head_status == 404:
+        notes.append("URL responded 404; return to the repository API/page instead of guessing paths.")
+    elif not head_ok:
+        notes.append("HEAD did not prove direct downloadability; use the repository API/page or a byte-range probe.")
+
+    if "text/html" in content_type.lower():
+        notes.append("Content-Type is HTML; inspect for login/error pages before treating it as a data file.")
+    if range_response:
+        if range_supported:
+            notes.append("Byte-range request returned 206 Partial Content.")
+        elif range_status == 200 and range_byte_read:
+            notes.append("Server returned 200 to a Range request; small byte read worked but resumable ranges are not proven.")
+        elif range_status in {401, 403, 404}:
+            notes.append("Byte-range request failed with an access or missing-file status.")
+        else:
+            notes.append("Byte-range support was not proven.")
+    else:
+        notes.append("Byte-range probe was skipped.")
+
+    return {
+        "head_status": head_status,
+        "final_url": head.get("url"),
+        "content_type": content_type or None,
+        "content_length": content_length,
+        "accept_ranges": accept_ranges,
+        "range_status": range_status,
+        "range_supported": range_supported,
+        "range_fetch_ok": range_fetch_ok,
+        "direct_downloadable": bool(direct_downloadable and (not range_response or range_fetch_ok)),
+        "notes": notes,
+    }
+
+
+def filename_from_url(url):
+    parsed = urllib.parse.urlparse(url)
+    name = os.path.basename(parsed.path.rstrip("/"))
+    return urllib.parse.unquote(name) if name else "download.dat"
+
+
+def cmd_probe_url(args):
+    head = request_raw(args.url, method="HEAD", timeout=args.timeout)
+    range_response = None
+    if args.do_range:
+        range_response = request_raw(
+            args.url,
+            method="GET",
+            headers={"Range": "bytes=0-0"},
+            timeout=args.timeout,
+            read_limit=1,
+        )
+    emit({
+        "source": "HTTP URL probe",
+        "command": "probe-url",
+        "request": {"url": args.url, "range": args.do_range, "timeout": args.timeout},
+        "normalized": interpret_probe(head, range_response),
+        "head": head,
+        "range": range_response,
+    })
+
+
+def checksum_commands(output, md5=None, sha256=None):
+    commands = []
+    quoted = shlex.quote(output)
+    if md5:
+        commands.append(f"md5sum {quoted}  # compare with {md5}")
+    if sha256:
+        commands.append(f"sha256sum {quoted}  # compare with {sha256}")
+    return commands
+
+
+def cmd_make_download_plan(args):
+    output = args.output or filename_from_url(args.url)
+    quoted_url = shlex.quote(args.url)
+    quoted_output = shlex.quote(output)
+    connections = max(1, args.connections)
+    commands = [
+        f"aria2c -c -x {connections} -s {connections} -k 1M --file-allocation=none -o {quoted_output} {quoted_url}",
+        f"wget -c -O {quoted_output} {quoted_url}",
+        f"curl -L -C - -o {quoted_output} {quoted_url}",
+    ]
+    validation = [f"python3 scripts/omics_api.py probe-url --url {quoted_url} --range"]
+    if args.expected_size is not None:
+        validation.append(f'test "$(wc -c < {quoted_output})" -eq {args.expected_size}')
+    validation.extend(checksum_commands(output, args.md5, args.sha256))
+    notes = [
+        "Prefer aria2c for large public files when available; wget/curl are fallbacks.",
+        "Run the probe before downloading and compare repository-provided checksums after downloading.",
+    ]
+    emit({
+        "source": "Omics download planner",
+        "command": "make-download-plan",
+        "request": {
+            "url": args.url,
+            "output": output,
+            "expected_size": args.expected_size,
+            "md5": args.md5,
+            "sha256": args.sha256,
+            "connections": connections,
+        },
+        "normalized": {
+            "output": output,
+            "download_commands": commands,
+            "validation_commands": validation,
+            "notes": notes,
+        },
+    })
+
+
+def globalping_measurement_body(url, limit=3, method="HEAD"):
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise SystemExit("--url must be an absolute http(s) URL")
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
+    protocol = parsed.scheme.upper()
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    request = {"method": "HEAD" if method == "HEAD" else "GET", "path": path}
+    if method == "RANGE":
+        request["headers"] = {"Range": "bytes=0-0"}
+    return {
+        "type": "http",
+        "target": parsed.hostname,
+        "locations": [{"country": "CN", "limit": limit}],
+        "measurementOptions": {
+            "protocol": protocol,
+            "port": port,
+            "request": request,
+        },
+    }
+
+
+def measurement_url_from_create(response):
+    data = response.get("json") if response.get("ok") else {}
+    if not isinstance(data, dict):
+        return None
+    links = data.get("links") or {}
+    href = links.get("self") or data.get("url")
+    if href:
+        return urllib.parse.urljoin("https://api.globalping.io", href)
+    measurement_id = data.get("id") or data.get("measurementId")
+    if measurement_id:
+        return f"https://api.globalping.io/v1/measurements/{measurement_id}"
+    return None
+
+
+def normalize_globalping_result(item):
+    probe = item.get("probe") or {}
+    result = item.get("result") or {}
+    headers = result.get("headers") or {}
+    header_keys = [
+        "content-type",
+        "content-length",
+        "content-range",
+        "accept-ranges",
+        "location",
+        "server",
+        "x-source",
+    ]
+    relevant_headers = {key: headers.get(key) for key in header_keys if headers.get(key) is not None}
+    return {
+        "city": probe.get("city"),
+        "country": probe.get("country"),
+        "network": probe.get("network"),
+        "asn": probe.get("asn"),
+        "status_code": result.get("statusCode"),
+        "error": result.get("error"),
+        "timings": result.get("timings"),
+        "resolved_address": result.get("resolvedAddress"),
+        "headers": relevant_headers,
+    }
+
+
+def cmd_probe_china_access(args):
+    body = globalping_measurement_body(args.url, args.limit, args.method)
+    if args.dry_run:
+        emit({
+            "source": "Globalping API",
+            "command": "probe-china-access",
+            "request": body,
+            "normalized": {"dry_run": True, "message": "Measurement payload only; no public probe credits used."},
+        })
+        return
+
+    create = request_json(
+        "https://api.globalping.io/v1/measurements",
+        method="POST",
+        body=body,
+        headers={"Accept": "application/json"},
+        timeout=30,
+    )
+    measurement_url = measurement_url_from_create(create)
+    final = None
+    if measurement_url:
+        deadline = time.time() + args.timeout
+        while time.time() < deadline:
+            final = request_json(measurement_url, timeout=30)
+            status = (final.get("json") or {}).get("status") if final.get("ok") else None
+            if status in {"finished", "failed"}:
+                break
+            time.sleep(args.poll_interval)
+    results = ((final or {}).get("json") or {}).get("results", []) if final else []
+    final_json = (final or {}).get("json") or {}
+    normalized_results = [normalize_globalping_result(item) for item in results]
+    ok_statuses = {200, 206, 301, 302, 303, 307, 308}
+    reachable = [item for item in normalized_results if item.get("status_code") in ok_statuses and not item.get("error")]
+    range_ok = [item for item in normalized_results if item.get("status_code") == 206]
+    emit({
+        "source": "Globalping API",
+        "command": "probe-china-access",
+        "request": body,
+        "create_response": create,
+        "measurement_url": measurement_url,
+        "response_summary": {
+            "ok": (final or {}).get("ok"),
+            "status": (final or {}).get("status"),
+            "measurement_status": final_json.get("status"),
+            "created_at": final_json.get("createdAt"),
+            "updated_at": final_json.get("updatedAt"),
+        },
+        "normalized": {
+            "probe_country": "CN",
+            "method": args.method,
+            "requested_limit": args.limit,
+            "results": normalized_results,
+            "reachable_count": len(reachable),
+            "range_206_count": len(range_ok),
+            "note": "Public probes show point-in-time reachability only; they do not guarantee access from every mainland network.",
+        },
+    })
 
 
 def safe_get(mapping, *keys):
@@ -809,6 +1105,32 @@ def build_parser():
     p.add_argument("--fetch", action="store_true", help="Fetch exact details for supported route types.")
     p.add_argument("--limit", type=int, default=5)
     p.set_defaults(func=cmd_resolve_accession)
+
+    p = sub.add_parser("probe-url", help="Verify a direct download URL with HEAD and an optional byte-range request.")
+    p.add_argument("--url", required=True)
+    p.add_argument("--timeout", type=int, default=30)
+    p.set_defaults(do_range=True)
+    p.add_argument("--range", dest="do_range", action="store_true", help="Also request Range: bytes=0-0 (default).")
+    p.add_argument("--no-range", dest="do_range", action="store_false", help="Skip byte-range probe.")
+    p.set_defaults(func=cmd_probe_url)
+
+    p = sub.add_parser("make-download-plan", help="Generate resumable download and validation commands for a URL.")
+    p.add_argument("--url", required=True)
+    p.add_argument("--output", default="")
+    p.add_argument("--expected-size", type=int)
+    p.add_argument("--md5", default="")
+    p.add_argument("--sha256", default="")
+    p.add_argument("--connections", type=int, default=8)
+    p.set_defaults(func=cmd_make_download_plan)
+
+    p = sub.add_parser("probe-china-access", help="Probe a URL from public China-mainland Globalping probes.")
+    p.add_argument("--url", required=True)
+    p.add_argument("--limit", type=int, default=3)
+    p.add_argument("--method", choices=["HEAD", "RANGE"], default="HEAD")
+    p.add_argument("--timeout", type=int, default=90)
+    p.add_argument("--poll-interval", type=float, default=2)
+    p.add_argument("--dry-run", action="store_true", help="Print the measurement payload without sending it.")
+    p.set_defaults(func=cmd_probe_china_access)
 
     p = sub.add_parser("ncbi-search", help="Search an NCBI Entrez database.")
     p.add_argument("--db", required=True, help="Entrez database, e.g. gds, sra, pubmed, bioproject.")
