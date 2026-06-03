@@ -19,6 +19,7 @@ Use this map to choose search targets. Always verify current metadata and links 
 | HCA atlas projects | Human Cell Atlas Data Portal | Raw and processed atlas files | Project pages can point to cloud buckets or partner portals |
 | Study-hosted processed matrices | GEO, Single Cell Portal, Figshare, Dryad, Zenodo | Count matrices, metadata, embeddings | Verify file type; embeddings/reference models are not full count matrices |
 | Organ/tissue atlases | HuBMAP, KPMP, HTAN, CZ CELLxGENE, HCA | Spatial/single-cell human tissue data | Some files need portal-specific manifests or auth |
+| Human Cell Atlas project discovery | HCA Data Portal / Azul API | HCA project metadata by organ/disease/project | Use `hca-catalogs` to avoid stale catalog names |
 
 ## Cancer And Human Cohorts
 
@@ -44,6 +45,15 @@ Use this map to choose search targets. Always verify current metadata and links 
 | Metabolomics | MetaboLights, Metabolomics Workbench | LC-MS/GC-MS/NMR metadata and peak tables | Data formats and normalization vary widely |
 | Microbiome/metagenomics | MGnify, Qiita, NCBI SRA/ENA, GSA | Amplicon and metagenomic runs, processed profiles | Processed taxonomic tables may not match raw run accessions |
 
+## General Supplemental Repositories
+
+| Need | Start Here | Good For | Watch Out |
+|---|---|---|---|
+| EBI-linked study supplements | BioStudies / ArrayExpress | `S-*`, `E-MTAB-*`, Europe PMC-linked study files | Search hits may be papers without reusable omics matrices |
+| General research deposits | Zenodo | h5ad, Seurat, model files, archives, code/data bundles | Search is broad; exact record/DOI lookup is more reliable |
+| Article supplements | Figshare | Per-article files with MD5 and direct download URLs | Many results are figures, not raw data |
+| Dataset DOI packages | Dryad | Packaged public datasets tied to publications | Often a zip/package; inspect file contents before assuming matrix type |
+
 ## Controlled-Access Signals
 
 Treat these as not directly downloadable unless the user has credentials/approval:
@@ -53,4 +63,3 @@ Treat these as not directly downloadable unless the user has credentials/approva
 - GSA-Human controlled projects
 - GDC controlled files, especially BAM/FASTQ and germline-sensitive data
 - Any portal page requiring data access committee approval
-

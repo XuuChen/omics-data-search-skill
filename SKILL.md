@@ -45,7 +45,15 @@ For supported repositories, run:
 python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" --help
 ```
 
-Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, and MetaboLights before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
+Use the adapter to get machine-readable JSON from NCBI, ENA, CELLxGENE, GDC, ENCODE, PRIDE, MGnify, MetaboLights, BioStudies, Zenodo, Figshare, Dryad, Crossref, and HCA/Azul before writing manual curl commands. Continue to cite the live repository page/API response in the final answer.
+
+Start exact identifiers with:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/scripts/omics_api.py" resolve-accession --accession ACCESSION --fetch
+```
+
+For paper titles, data availability leads, or supplemental processed files, use `supplement-search` and then validate candidate download URLs.
 
 ## Output Contract
 

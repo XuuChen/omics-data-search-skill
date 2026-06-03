@@ -20,6 +20,14 @@ Build queries from these facets:
 3. Search accession IDs from the paper in their primary repository.
 4. If a paper gives a collection page but no file URL, inspect the repository API or page assets rather than guessing paths.
 
+Adapter shortcuts:
+
+```bash
+python3 scripts/omics_api.py crossref-search --title 'paper title' --rows 5
+python3 scripts/omics_api.py supplement-search --query 'paper title accession tissue modality' --limit 5
+python3 scripts/omics_api.py resolve-accession --accession ACCESSION --fetch
+```
+
 Useful web queries:
 
 ```text
